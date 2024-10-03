@@ -3,141 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Position Size & Charges Calculator</title>
+    <title>Position Size Calculator</title>
     <style>
+        /* Add CSS for a more mobile-friendly UI */
         body {
             font-family: Arial, sans-serif;
+            margin: 0;
             padding: 20px;
-            background-color: #f7f7f7;
-            color: #333;
-            max-width: 400px;
-            margin: auto;
+            background-color: #f4f4f4;
         }
-        label, input {
-            display: block;
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        label, p {
+            font-size: 14px;
+        }
+        input[type="number"] {
             width: 100%;
-            margin: 10px 0;
-            font-size: 1.1em;
+            padding: 8px;
+            margin: 5px 0 20px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
         }
         input[type="checkbox"] {
-            transform: scale(0.8);
             margin-right: 10px;
+            transform: scale(0.8); /* Smaller checkboxes */
         }
         button {
-            width: 100%;
-            padding: 10px;
-            font-size: 1.2em;
-            background-color: #4CAF50;
+            background-color: #28a745;
             color: white;
             border: none;
+            padding: 10px;
             border-radius: 5px;
             cursor: pointer;
+            width: 100%;
         }
         button:hover {
-            background-color: #45a049;
-        }
-        .output {
-            margin-top: 20px;
-            background-color: #e9e9e9;
-            padding: 15px;
-            border-radius: 8px;
-            font-size: 1.1em;
+            background-color: #218838;
         }
         .highlight {
-            font-size: 1.5em;
-            color: #d14;
+            color: #d885a2; /* Highlight the Lots */
             font-weight: bold;
-        }
-        .checkbox-label {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
         }
     </style>
 </head>
 <body>
+    <div class="container">
+        <h2>Position Size Calculator</h2>
+        <label for="entry">Entry Price:</label>
+        <input type="number" id="entry" value="60250.25">
 
-    <h2>Position Size & Charges Calculator</h2>
+        <p>Select Stop Loss %:</p>
+        <label><input type="checkbox" id="sl02" value="0.2"> 0.2%</label>
+        <label><input type="checkbox" id="sl03" value="0.3" checked> 0.3%</label>
+        <label><input type="checkbox" id="sl04" value="0.4"> 0.4%</label>
+        <label><input type="checkbox" id="sl05" value="0.5"> 0.5%</label>
 
-    <label for="entry">Entry Price:</label>
-    <input type="number" id="entry" placeholder="Enter entry price" step="0.01" required>
+        <p>Target % (default 0.6):</p>
+        <input type="number" id="target" value="0.6">
 
-    <label for="target">Target Price (%):</label>
-    <input type="number" id="target" value="0.6" step="0.01" required>
+        <button onclick="calculatePosition()">Calculate Position Size</button>
 
-    <label>Stop Loss (%):</label>
-    <div class="checkbox-label">
-        <label><input type="checkbox" id="sl02" value="0.2"> 0.2</label>
-        <label><input type="checkbox" id="sl03" value="0.3" checked> 0.3</label>
-        <label><input type="checkbox" id="sl04" value="0.4"> 0.4</label>
-        <label><input type="checkbox" id="sl05" value="0.5"> 0.5</label>
+        <p id="output"></p>
     </div>
 
-    <label for="customSL">Or enter custom Stop Loss (%):</label>
-    <input type="number" id="customSL" placeholder="Custom stop loss" step="0.01">
-
-    <button onclick="calculate()">Calculate</button>
-
-    <div id="output" class="output"></div>
-
     <script>
-        function calculate() {
+        function calculatePosition() {
             const entry = parseFloat(document.getElementById('entry').value);
-            const target = parseFloat(document.getElementById('target').value);
-            const sl02 = document.getElementById('sl02').checked ? parseFloat(document.getElementById('sl02').value) : null;
-            const sl03 = document.getElementById('sl03').checked ? parseFloat(document.getElementById('sl03').value) : null;
-            const sl04 = document.getElementById('sl04').checked ? parseFloat(document.getElementById('sl04').value) : null;
-            const sl05 = document.getElementById('sl05').checked ? parseFloat(document.getElementById('sl05').value) : null;
-            const customSL = parseFloat(document.getElementById('customSL').value) || null;
-
-            let stopLosses = [sl02, sl03, sl04, sl05, customSL].filter(val => val !== null);
+            const target = parseFloat(document.getElementById('target').value) || 0.6; // Default target 0.6
+            const capital = 240;
+            const rpt = 3;
+            const cont = 0.001; // BTC contract size
 
             let output = '';
-            stopLosses.forEach(sl => {
-                let result = calculatePositionSize(entry, sl, target);
-                output += `<p>For Stop Loss ${sl}%:</p>`;
-                output += `<p>Stop Loss Points: ${result.SLPoints.toFixed(2)}, Target Points: ${result.targetPoints.toFixed(2)}</p>`;
-                output += `<p>Quantity: ${result.qty.toFixed(8)}, <span class="highlight">Lots: ${result.lots.toFixed(2)}</span></p>`;
-                output += `<p>Loss: $${result.loss.toFixed(2)}, Profit: $${result.profit.toFixed(2)}</p>`;
-                output += `<p>Total Charges (Inc. GST): $${result.charges.toFixed(2)}</p><hr>`;
+
+            // Loop over each checkbox to calculate for selected SL percentages
+            document.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
+                const SL = parseFloat(checkbox.value);
+
+                const SLPoints = (entry * SL) / 100;
+                const targetPoints = (entry * target) / 100;
+                const rptValue = Math.round((capital * rpt) / 100 * 100.0) / 100.0;
+
+                const qty = rptValue / SLPoints;
+                const lots = qty / cont;
+
+                const loss = Math.round((lots * cont * SLPoints) * 100.0) / 100.0;
+                const profit = Math.round((qty * targetPoints) * 100.0) / 100.0;
+
+                // Calculate charges
+                const charges = calcChargesDeltaEx(lots, entry, entry - SLPoints, true);
+
+                // Format results
+                output += `<br><strong>For Stop Loss ${SL}%:</strong><br>`;
+                output += `Stop Loss Points: ${SLPoints.toFixed(2)}, Target Points: ${targetPoints.toFixed(2)}<br>`;
+                output += `Quantity: ${qty.toFixed(8)}, <span class="highlight">Lots: ${lots.toFixed(2)}</span><br>`;
+                output += `Loss: $${loss}, Profit: $${profit}<br>`;
+                output += `Total Charges (Inc. GST): $${charges.toFixed(2)}<br><br>`;
             });
 
             document.getElementById('output').innerHTML = output;
         }
 
-        function calculatePositionSize(entry, SL, target) {
-            const capital = 240;
-            const rpt = 3;
+        function calcChargesDeltaEx(lots, entry, exit, isMaker) {
+            let tradingFee = 0.05;
             const cont = 0.001; // BTC
+            const GST = 0.18; // 18% GST on trading fees
 
-            const SLPoints = (entry * SL) / 100;
-            const targetPoints = (entry * target) / 100;
-            const rptValue = (capital * rpt) / 100;
-            const qty = rptValue / SLPoints;
-            const lots = qty / cont;
-
-            const loss = (lots * cont) * SLPoints;
-            const profit = qty * targetPoints;
-
-            const charges = calculateCharges(lots, entry, entry - SLPoints, true);
-
-            return { SLPoints, targetPoints, qty, lots, loss, profit, charges };
-        }
-
-        function calculateCharges(lots, entry, exit, isMaker) {
-            const tradingFee = isMaker ? 0.02 : 0.05;
-            const GST = 0.18;
-            const cont = 0.001; // BTC
+            if (isMaker) {
+                tradingFee = 0.02;
+            }
 
             const orderValueBUY = lots * cont * entry;
-            const chargeBUY = orderValueBUY * tradingFee / 100 + orderValueBUY * tradingFee * GST;
+            let chargeBUY = (orderValueBUY * tradingFee) / 100;
+            chargeBUY += chargeBUY * GST;
 
             const orderValueSELL = lots * cont * exit;
-            const chargeSELL = orderValueSELL * tradingFee / 100 + orderValueSELL * tradingFee * GST;
+            let chargeSELL = (orderValueSELL * tradingFee) / 100;
+            chargeSELL += chargeSELL * GST;
 
             return chargeBUY + chargeSELL;
         }
     </script>
-
 </body>
 </html>
