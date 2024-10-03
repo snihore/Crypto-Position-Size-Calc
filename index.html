@@ -54,14 +54,18 @@
 <body>
     <div class="container">
         <h2>Position Size Calculator</h2>
+
         <label for="entry">Entry Price:</label>
-        <input type="number" id="entry" value="60250.25">
+        <input type="number" id="entry" placeholder="Enter entry price">
 
         <p>Select Stop Loss %:</p>
         <label><input type="checkbox" id="sl02" value="0.2"> 0.2%</label>
-        <label><input type="checkbox" id="sl03" value="0.3" checked> 0.3%</label>
+        <label><input type="checkbox" id="sl03" value="0.3"> 0.3%</label>
         <label><input type="checkbox" id="sl04" value="0.4"> 0.4%</label>
         <label><input type="checkbox" id="sl05" value="0.5"> 0.5%</label>
+
+        <p>Or Manually Enter Stop Loss %:</p>
+        <input type="number" id="manualSL" placeholder="Enter custom stop loss %" step="0.01">
 
         <p>Target % (default 0.6):</p>
         <input type="number" id="target" value="0.6">
@@ -81,10 +85,22 @@
 
             let output = '';
 
-            // Loop over each checkbox to calculate for selected SL percentages
-            document.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
-                const SL = parseFloat(checkbox.value);
+            // First, check if the user has manually entered a stop-loss
+            const manualSL = parseFloat(document.getElementById('manualSL').value);
 
+            if (!isNaN(manualSL) && manualSL > 0) {
+                calculateForStopLoss(manualSL);
+            } else {
+                // Loop over each checkbox to calculate for selected SL percentages
+                document.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
+                    const SL = parseFloat(checkbox.value);
+                    calculateForStopLoss(SL);
+                });
+            }
+
+            document.getElementById('output').innerHTML = output;
+
+            function calculateForStopLoss(SL) {
                 const SLPoints = (entry * SL) / 100;
                 const targetPoints = (entry * target) / 100;
                 const rptValue = Math.round((capital * rpt) / 100 * 100.0) / 100.0;
@@ -104,9 +120,7 @@
                 output += `Quantity: ${qty.toFixed(8)}, <span class="highlight">Lots: ${lots.toFixed(2)}</span><br>`;
                 output += `Loss: $${loss}, Profit: $${profit}<br>`;
                 output += `Total Charges (Inc. GST): $${charges.toFixed(2)}<br><br>`;
-            });
-
-            document.getElementById('output').innerHTML = output;
+            }
         }
 
         function calcChargesDeltaEx(lots, entry, exit, isMaker) {
