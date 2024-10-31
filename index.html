@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Position Size Calculator</title>
+    <title>Forex Position Size Calculator</title>
     <style>
-        /* Add CSS for a more mobile-friendly UI */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -29,10 +28,6 @@
             border-radius: 5px;
             border: 1px solid #ddd;
         }
-        input[type="checkbox"] {
-            margin-right: 10px;
-            transform: scale(0.8); /* Smaller checkboxes */
-        }
         button {
             background-color: #28a745;
             color: white;
@@ -46,36 +41,26 @@
             background-color: #218838;
         }
         .highlight {
-            color: #d885a2; /* Highlight the Lots */
+            color: #d885a2;
             font-weight: bold;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Position Size Calculator</h2>
+        <h2>Forex Position Size Calculator</h2>
 
-        <label for="entry">Entry Price:</label>
-        <input type="number" id="entry" placeholder="Enter entry price">
+        <label for="capital">Account Size (default $5000):</label>
+        <input type="number" id="capital" value="5000">
 
-        <label for="capital">Capital (default 120):</label>
-        <input type="number" id="capital" value="120">
+        <label for="rpt">Risk Percentage (default 1%):</label>
+        <input type="number" id="rpt" value="1" step="0.01">
 
-        <label for="contract">Contract Size (default 0.001):</label>
-        <input type="number" id="contract" value="0.001" step="0.0001">
+        <label for="slPip">Stop Loss Pips:</label>
+        <input type="number" id="slPip" placeholder="Enter stop loss in pips">
 
-
-        <p>Select Stop Loss %:</p>
-        <label><input type="checkbox" id="sl02" value="0.2"> 0.2%</label>
-        <label><input type="checkbox" id="sl03" value="0.3"> 0.3%</label>
-        <label><input type="checkbox" id="sl04" value="0.4"> 0.4%</label>
-        <label><input type="checkbox" id="sl05" value="0.5"> 0.5%</label>
-
-        <p>Or Manually Enter Stop Loss %:</p>
-        <input type="number" id="manualSL" placeholder="Enter custom stop loss %" step="0.01">
-
-        <p>Target % (default 0.6):</p>
-        <input type="number" id="target" value="0.6">
+        <label for="targetPip">Target Pips:</label>
+        <input type="number" id="targetPip" placeholder="Enter target in pips">
 
         <button onclick="calculatePosition()">Calculate Position Size</button>
 
@@ -83,76 +68,42 @@
     </div>
 
     <script>
-
-        // const cont = 0.01; // BTC contract size
-
-
         function calculatePosition() {
+            const account = parseFloat(document.getElementById('capital').value) || 5000;
+            const rpt = parseFloat(document.getElementById('rpt').value) || 1;
+            const slPip = parseFloat(document.getElementById('slPip').value);
+            const targetPip = parseFloat(document.getElementById('targetPip').value);
 
-            const cont = parseFloat(document.getElementById('contract').value) || 0.001;
-            const entry = parseFloat(document.getElementById('entry').value);
-            const target = parseFloat(document.getElementById('target').value) || 0.6; // Default target 0.6
-            const capital = parseFloat(document.getElementById('capital').value) || 120; // Default capital 120
-            const rpt = 3;
+            const lotNames = ["standard", "mini", "micro", "nano"];
+            const lotSizes = { "standard": 1, "mini": 0.1, "micro": 0.01, "nano": 0.001 };
+            const lotPerPip = { "standard": 10, "mini": 1, "micro": 0.1, "nano": 0.01 };
 
-            let output = '';
+            let finalLotName = "";
+            let finalLot = 0;
+            let output = "";
 
-            // First, check if the user has manually entered a stop-loss
-            const manualSL = parseFloat(document.getElementById('manualSL').value);
+            for (let i = 0; i < lotNames.length; i++) {
+                const lotName = lotNames[i];
+                const diff = lotPerPip[lotName] * slPip;
 
-            if (!isNaN(manualSL) && manualSL > 0) {
-                calculateForStopLoss(manualSL);
-            } else {
-                // Loop over each checkbox to calculate for selected SL percentages
-                document.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
-                    const SL = parseFloat(checkbox.value);
-                    calculateForStopLoss(SL);
-                });
+                if (diff <= (account * rpt / 100)) {
+                    finalLotName = lotName;
+                    const perPipValue = (account * rpt / 100) / diff;
+                    finalLot = lotSizes[lotName] * perPipValue;
+                    const finalLotPerPip = lotPerPip[lotName] * perPipValue;
+                    const totalLoss = finalLotPerPip * slPip;
+                    const totalProfit = finalLotPerPip * targetPip;
+
+                    output += `<strong>Lot Name:</strong> ${finalLotName}<br>`;
+                    output += `<strong>Lot Size:</strong> ${finalLot.toFixed(4)}<br>`;
+                    output += `<strong>Lot Value Per Pip:</strong> ${finalLotPerPip.toFixed(4)}<br>`;
+                    output += `<strong>Total Loss:</strong> $${totalLoss.toFixed(4)}<br>`;
+                    output += `<strong>Total Profit:</strong> $${totalProfit.toFixed(4)}<br>`;
+                    break;
+                }
             }
 
-            document.getElementById('output').innerHTML = output;
-
-            function calculateForStopLoss(SL) {
-                const SLPoints = (entry * SL) / 100;
-                const targetPoints = (entry * target) / 100;
-                const rptValue = Math.round((capital * rpt) / 100 * 100.0) / 100.0;
-
-                const qty = rptValue / SLPoints;
-                const lots = qty / cont;
-
-                const loss = Math.round((lots * cont * SLPoints) * 100.0) / 100.0;
-                const profit = Math.round((qty * targetPoints) * 100.0) / 100.0;
-
-                // Calculate charges
-                const charges = calcChargesDeltaEx(lots, entry, entry - SLPoints, true);
-
-                // Format results
-                output += `<br><strong>For Stop Loss ${SL}%:</strong><br>`;
-                output += `Stop Loss Points: ${SLPoints.toFixed(2)}, Target Points: ${targetPoints.toFixed(2)}<br>`;
-                output += `Quantity: ${qty.toFixed(8)}, <span class="highlight">Lots: ${lots.toFixed(2)}</span><br>`;
-                output += `Loss: $${loss}, Profit: $${profit}<br>`;
-                output += `Total Charges (Inc. GST): $${charges.toFixed(2)}<br><br>`;
-            }
-        }
-
-        function calcChargesDeltaEx(lots, entry, exit, isMaker) {
-            let tradingFee = 0.05;
-            const cont = parseFloat(document.getElementById('contract').value) || 0.001;
-            const GST = 0.18; // 18% GST on trading fees
-
-            if (isMaker) {
-                tradingFee = 0.02;
-            }
-
-            const orderValueBUY = lots * cont * entry;
-            let chargeBUY = (orderValueBUY * tradingFee) / 100;
-            chargeBUY += chargeBUY * GST;
-
-            const orderValueSELL = lots * cont * exit;
-            let chargeSELL = (orderValueSELL * tradingFee) / 100;
-            chargeSELL += chargeSELL * GST;
-
-            return chargeBUY + chargeSELL;
+            document.getElementById('output').innerHTML = output || "No suitable lot size found for given risk.";
         }
     </script>
 </body>
